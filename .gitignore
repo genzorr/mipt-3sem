@@ -1,0 +1,7 @@
+*.a
+*.o
+*.d
+/test/
+task2_Split/Debug/**/*
+!task2_Split/Debug/task2_Split
+
