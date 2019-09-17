@@ -78,7 +78,7 @@ int PrintWords(char** words, int count)
 		return ASSERT_FAIL;
 
 	for (int i = 0; i < count; i++)
-		printf("%s\t\t\t%p\n", words[i], words[i]);
+		printf("%s\n", words[i]);
 
 	return OK;
 }
@@ -89,13 +89,8 @@ int FreeWordsMemory(char** words, int count)
 	if (MY_assert(words))
 		return ASSERT_FAIL;
 
-	for (int i = 0; i < count; i++)
-	{
-		free(words[i]);
-		words[i] = NULL;
-	}
-
 	free(words);
+	words = NULL;
 
 	return OK;
 }
