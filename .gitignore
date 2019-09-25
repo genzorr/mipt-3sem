@@ -5,3 +5,4 @@
 task2_Split/Debug/**/*
 !task2_Split/Debug/task2_Split
 
+/.metadata/

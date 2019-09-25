@@ -66,7 +66,14 @@ int Split(char* str, char* delim, char** words, int* count)
 	words[*count] = strtok(str, delim);
 
 	while (words[*count] != NULL)
+	{
+		if (*count < MAX_WORDS - 1)
+		{
+			printf("# Memory for words ended\n");
+			return FUN_ERROR;
+		}
 		words[++(*count)] = strtok(NULL, delim);
+	}
 
 	return OK;
 }
