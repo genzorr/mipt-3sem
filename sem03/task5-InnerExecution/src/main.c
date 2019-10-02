@@ -7,7 +7,14 @@
 
 #include "tools.h"
 
+#define KILL_TIME	5
+#define MAX_ARG_NUM	20
+
+
 const char* filepath = "../input.txt";
+const char* timeout_s = "timeout";
+const char* timeout_t = "5";
+
 
 int get_fileSize(const char* filepath, int* size);
 char* read_plaintext(const char* filepath, int* filesize, int* nLines, int* response);
@@ -15,75 +22,77 @@ char** create_pointersToLinesArray(char* plaintext, int nlines, int* response);
 int text_fillArray_removeNewLines(char* plaintext, char** text);
 int get_linesNumber(char* str, int* nLines);
 
+int Split(char* str, char* delim, char** words, int* count);
+
 
 int main(int argc, char **argv, char** envp)
 {
 	int filesize = 0, nLines = 0, response = 0;
+
+	//	Read data from file to one string.
 	char* plaintext = read_plaintext(filepath, &filesize, &nLines, &response);
 	if (response)
 		return OPEN_FAIL;
 
+	//	Create and fill pointers to lines array.
 	char** text = create_pointersToLinesArray(plaintext, nLines, &response);
 	if (response)
 		return response;
 
+	//	Get number of commands to be runned.
 	int cmd_number = 0;
 	cmd_number = atoi(text[0]);
 
-	for (int i = 1; i < cmd_number+1; i++)
-	{
-		//	fork
-		int cmd_len = 0, params_len = 0;
-		char* space_pos = strchr(text[i], ' ');
+	//	Array for keeping pointers to arguments of current command.
+	char** args = (char**)calloc(MAX_ARG_NUM+1, sizeof(*args));
 
-		if (space_pos != NULL)
+	for (int i = 1; i <= cmd_number; i++)
+	{
+		int timeout = 0;
+
+		pid_t pid = fork();
+		if (pid == 0)
 		{
+			memset(args, 0, MAX_ARG_NUM+1);
+
+			//	Get timeout value
+			char* space_pos = strchr(text[i], ' ');
 			*space_pos = '\0';
-			printf("cmd: %s", text[i]);
-			printf(", params: %s", space_pos+1);
-			cmd_len = (int)(space_pos - text[i]);
-			params_len = (int)(text[i+1] - text[i]) - cmd_len - 2;
+			timeout = atoi(text[i]);
+
+			//	Fill in args array, set 0 and 1 elements to special timeout values.
+			int args_num = 0;
+			args[0] = timeout_s;
+			args[1] = timeout_t;
+			Split(space_pos+1, " ", args+2, &args_num);
+
+			//	Wait needed time and run command.
+			sleep(timeout);
+			execvp("timeout", args);
+		}
+	}
+
+	int killed_number = 0, status = 0;
+	for (;;)
+	{
+		status = 0;
+		pid_t pid = waitpid(-1, &status, 0);
+
+		//	Idea is that status of process that was killed by timeout will be not zero.
+		if ((status >> 8) & 255)
+		{
+			red; printf("Process %d was killed by timeout\n", pid); reset_color;
 		}
 		else
 		{
-			printf("cmd: %s", text[i]);
-			cmd_len = (int)(text[i+1] - text[i]) - 1;
+			green; printf("Process %d ended succesfully\n", pid); reset_color;
 		}
 
-		printf("\ncmd len: %d, params len: %d\n\n", cmd_len, params_len);
+		killed_number++;
+
+		if (killed_number == cmd_number)
+			break;
 	}
-
-
-//	int n = 5;
-//
-//	pid_t PPID = getpid();
-//	blue; printf("# Parent process id: %d\n", PPID); reset_color;
-//
-//	for (int i = 0; i < n; i++)
-//	{
-//		pid_t new_pid = fork();		//	Fork in parent
-//
-//		if (new_pid == 0)			//	We are IN child
-//		{
-//			green; printf("# Parent %d created child %d\n", getppid(), getpid()); reset_color;
-//		}
-//		else
-//		{
-//			int status = 0;
-//			pid_t termin_child_pid = wait(&status);
-//			pid_t ppid = getpid();
-//
-//			if (ppid == PPID)
-//				blue;
-//			else
-//				yellow;
-//
-//			printf("# Parent %d terminated child %d status: %d\n",
-//					ppid, termin_child_pid, (status >> 8) & 255);
-//			reset_color;
-//			exit(42);
-//		}
-//	}
 
 	return 0;
 }
@@ -208,6 +217,29 @@ int text_fillArray_removeNewLines(char* plaintext, char** text)
 	for (char* ch = strchr(plaintext, '\n'); ch; ch = strchr(ch + 1, '\n')) {
 		*ch = '\0';
 		text[lines_counter++] = ch+1;
+	}
+
+	return OK;
+}
+
+
+//	Splits str by delim using strtok
+int Split(char* str, char* delim, char** words, int* count)
+{
+	if (MY_assert(str) || MY_assert(delim) || MY_assert(words) || MY_assert(count))
+		return ASSERT_FAIL;
+	*count = 0;
+
+	words[*count] = strtok(str, delim);
+
+	while (words[*count] != NULL)
+	{
+		if (*count > MAX_ARG_NUM - 1)
+		{
+			puts("# Memory for words ended\n");
+			return FUN_ERROR;
+		}
+		words[++(*count)] = strtok(NULL, delim);
 	}
 
 	return OK;

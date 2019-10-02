@@ -1,4 +1,5 @@
-3
-ls -al
-pwd
-echo Hello, world!
+4
+1 ls -al
+1 pwd
+0 sleep 100
+7 echo Hello, world!

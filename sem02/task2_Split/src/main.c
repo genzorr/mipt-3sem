@@ -56,7 +56,7 @@ char* getString_alloc(int len)
 	return s;
 }
 
-//	Splits str by delim using strtok, allocates memory inside
+//	Splits str by delim using strtok
 int Split(char* str, char* delim, char** words, int* count)
 {
 	if (MY_assert(str) || MY_assert(delim) || MY_assert(words) || MY_assert(count))
