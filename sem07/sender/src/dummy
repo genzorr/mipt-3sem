@@ -1,0 +1,15 @@
+// STAR 
+	pid_t PPID = getpid();			//	Get PID of parent process
+	for (int i = 0; i < n; i++)
+	{
+		pid_t ppid = getppid();		//	Get PPID of current process running
+		if (ppid == PPID)			//	Sleep child
+		{
+			sleep(10);
+			exit(-1);
+		}
+
+		pid_t new_pid = fork();
+		if (new_pid != 0)			// Print process id only in parent process
+			printf("# New child created, pid: %d, ppid: %d\n", new_pid, getppid());
+	}
