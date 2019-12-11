@@ -6,11 +6,15 @@
 #include <unistd.h>
 
 #include <pthread.h>
+#include <fcntl.h>
+
 
 #include "tools.h"
 
-#define TABLE_LIMIT		5
-#define DISHES_COUNT	20
+#define TABLE_LIMIT		3
+#define DISHES_COUNT	10
+
+int pip[2];
 
 
 void* Washer(void* arg)
@@ -18,9 +22,13 @@ void* Washer(void* arg)
 	int semid = *(int*)arg;
 	int washer_times[DISHES_COUNT] = {
 			1, 1, 1, 1, 1,
-			2, 3, 4, 5, 1,
-			2, 5, 4, 7, 3,
-			5, 8, 10, 1, 2};
+			2, 3, 4, 5, 1
+	};
+
+	int wiper_times[DISHES_COUNT] = {
+			3, 3, 3, 3, 3,
+			4, 4, 4, 3, 4
+	};
 
 	struct sembuf buf[2];
 	buf[0].sem_op	= -1;
@@ -31,12 +39,18 @@ void* Washer(void* arg)
 	buf[1].sem_flg	= 0;
 	buf[1].sem_num	= 1;
 
+//	close(pip[0]);
+
 	for (int i = 0; i < DISHES_COUNT; i++)
 	{
-		sleep(washer_times[i]);
-		semop(semid, buf, 2);
+		write(pip[1], &wiper_times[i], sizeof(int));
 		green; printf("# Dish %d washed\n", i); reset_color;
+		sleep(washer_times[i]);
+
+		semop(semid, buf, 2);
 	}
+
+	close(pip[1]);
 
 	return NULL;
 }
@@ -44,11 +58,6 @@ void* Washer(void* arg)
 void* Wiper(void* arg)
 {
 	int semid = *(int*)arg;
-	int wiper_times[DISHES_COUNT] = {
-			2, 2, 2, 2, 2,
-			2, 1, 4, 3, 4,
-			2, 1, 4, 7, 3,
-			5, 8, 1, 1, 2};
 
 	struct sembuf buf[2];
 	buf[0].sem_op	= 1;
@@ -59,12 +68,20 @@ void* Wiper(void* arg)
 	buf[1].sem_flg	= 0;
 	buf[1].sem_num	= 1;
 
+//	close(pip[1]);
+
+	int time = 0;
 	for (int i = 0; i < DISHES_COUNT; i++)
 	{
-		sleep(wiper_times[i]);
-		semop(semid, buf, 2);
+		read(pip[0], &time, sizeof(int));
+		sleep(time);
+//		sleep(wiper_times[i]);
 		yellow; printf("# Dish %d wiped\n", i); reset_color;
+
+		semop(semid, buf, 2);
 	}
+
+	close(pip[0]);
 
 	return NULL;
 }
@@ -102,6 +119,11 @@ int main()
 
 	semop(semid, buf, 2);
 
+	if (pipe(pip) < 0)
+	{
+		printf("Can't open pipe\n");
+		return -1;
+	}
 
 	//	Create threads.
 	pthread_t thid1, thid2;
