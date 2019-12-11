@@ -17,7 +17,7 @@ void* ThreadGetAverage(void* arg)
 
 	double* avg = (double*)calloc(1, sizeof(*avg));
 	for (int i = 0; i < count; i++)
-		*avg += rand();
+		*avg += 1;
 
 	return (void*)avg;
 }

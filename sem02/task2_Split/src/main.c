@@ -67,7 +67,7 @@ int Split(char* str, char* delim, char** words, int* count)
 
 	while (words[*count] != NULL)
 	{
-		if (*count < MAX_WORDS - 1)
+		if (*count > MAX_WORDS - 1)
 		{
 			printf("# Memory for words ended\n");
 			return FUN_ERROR;

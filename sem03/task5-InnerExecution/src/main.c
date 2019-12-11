@@ -7,12 +7,11 @@
 
 #include "tools.h"
 
-#define KILL_TIME	5
 #define MAX_ARG_NUM	20
 
 
 const char* filepath = "../input.txt";
-const char* timeout_s = "timeout";
+const char* timeout_s = "./mytimeout";
 const char* timeout_t = "5";
 
 
@@ -66,9 +65,9 @@ int main(int argc, char **argv, char** envp)
 			args[1] = timeout_t;
 			Split(space_pos+1, " ", args+2, &args_num);
 
-			//	Wait needed time and run command.
+			//	Wait run command.
 			sleep(timeout);
-			execvp("timeout", args);
+			execvp("./mytimeout", args);
 		}
 	}
 
