@@ -1,31 +1,36 @@
 #ifndef CONNECTION_H_
 #define CONNECTION_H_
 
-#define TO_CLIENT		1
-#define TO_SERVER		2
-#define LAST_MESSAGE	255
+#define NAME_LEN		20
 
-typedef struct client_server_buf_msg
+#define BROADCAST_ALL	0
+#define BROADCAST_ONE	1
+
+#define MESSAGE_LEN		100
+
+
+typedef struct socket_params
 {
-	long mtype;
-	struct payload1_t
-	{
-		pid_t pid;
-		int a;
-		int b;
-	}payload;
-} client_server_buf;
+	int sockfd;
+	struct sockaddr_in servaddr;
+	struct sockaddr_in cliaddr;
+} socket_params_t;
 
 
-typedef struct server_client_buf_msg
+typedef struct message
 {
-	long mtype;
-	struct payload2_t
+	int broadcast;
+	struct sockaddr_in receiver;
+	typedef struct payload_t
 	{
-		long ab;
-	}payload;
-} server_client_buf;
+		char name[NAME_LEN];
+		char message[MESSAGE_LEN];
+	} payload;
+} message_t;
 
-int socketCreate(void);
+
+int socketCreate(int* sockfd);
+int socketSetup_server(int* sockfd, struct sockaddr_in* servaddr);
+
 
 #endif /* CONNECTION_H_ */

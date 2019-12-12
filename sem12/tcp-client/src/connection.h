@@ -1,9 +1,19 @@
 #ifndef CONNECTION_H_
 #define CONNECTION_H_
 
+#include <netinet/in.h>
+
 #define TO_CLIENT		1
 #define TO_SERVER		2
 #define LAST_MESSAGE	255
+
+typedef struct socket_params
+{
+	int sockfd;
+	struct sockaddr_in servaddr;
+	struct sockaddr_in cliaddr;
+} socket_params_t;
+
 
 typedef struct client_server_buf_msg
 {
@@ -26,6 +36,7 @@ typedef struct server_client_buf_msg
 	}payload;
 } server_client_buf;
 
-int socketCreate(void);
+int socketCreate(int* sockfd);
+int socketSetup_client(int* sockfd, struct sockaddr_in* servaddr, struct sockaddr_in* cliaddr, const char* ip);
 
 #endif /* CONNECTION_H_ */

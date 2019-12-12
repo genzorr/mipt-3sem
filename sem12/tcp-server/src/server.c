@@ -10,7 +10,10 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define MAX_CLIENT_COUNT 1000
+#include "tools.h"
+#include "connection.h"
+
+#define MAX_CLIENT_COUNT	10
 
 int client_count;
 int* sockfds;
@@ -18,7 +21,10 @@ int* sockfds;
 
 void* server(void* arg)
 {
-	int newsockfd = *((int*)arg);
+	socket_params_t params = *((socket_params_t*)arg);
+	int newsockfd = params.sockfd;
+	struct sockaddr_in servaddr = params.servaddr;
+	struct sockaddr_in cliaddr	= params.cliaddr;
 
 	char line[1000] = {};
 	int n = 0;
@@ -26,16 +32,16 @@ void* server(void* arg)
 	for (;;)
 	{
 		//	Read information from connected socket.
-		while((n = read(newsockfd, line, 999)) > 0)
+		while((n = recvfrom(newsockfd, line, 1000, 0, (struct sockaddr*)NULL, NULL)) > 0)
 		{
 			for (int i = 0; i < client_count; i++)
 			{
 				if (sockfds[i] == newsockfd)
 					continue;
 
-				if((n = write(sockfds[i], line, strlen(line)+1)) < 0)
+				if ((n = sendto(sockfds[i], line, 1000, 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr))) < 0)
 				{
-					perror(NULL);
+					perror("# Sendto");
 					close(newsockfd);
 					exit(1);
 				}
@@ -45,7 +51,7 @@ void* server(void* arg)
 		//	Exit if error occurred.
 		if(n < 0)
 		{
-			perror(NULL);
+			perror("Error when send");
 			close(newsockfd);
 			exit(1);
 		}
@@ -57,37 +63,27 @@ void* server(void* arg)
 
 int main()
 {
+	int error = 0;
+
     int sockfd, newsockfd;
-    int clilen;
+    socklen_t clilen;
     struct sockaddr_in servaddr, cliaddr;
 
     //	Create tcp socket.
-    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        perror(NULL);
-        exit(1);
-    }
+    error = socketCreate(&sockfd);
+    if (error == FUN_ERROR)
+    	return -1;
 
-    bzero(&servaddr, sizeof(servaddr));
-    servaddr.sin_family= AF_INET;
-    servaddr.sin_port= htons(51000);
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    //	Setup socket.
+    error = socketSetup_server(&sockfd, &servaddr);
+    if (error == FUN_ERROR)
+		return -1;
 
-    //	Setup socket's address.
-    if(bind(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0)
-    {
-        perror(NULL);
-        close(sockfd);
-        exit(1);
-    }
-
-    //	Move socket to listening mode.
-    if(listen(sockfd, 5) < 0)
-    {
-        perror(NULL);
-        close(sockfd);
-        exit(1);
-    }
+    socket_params_t params = {
+    		.sockfd = 0,
+    		.servaddr = servaddr,
+			.cliaddr = cliaddr
+    };
 
     client_count = 0;
     sockfds = (int*)calloc(MAX_CLIENT_COUNT, sizeof(*sockfds));
@@ -98,16 +94,17 @@ int main()
         clilen = sizeof(cliaddr);
 
         //	Accept socket connection.
-        if((newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &clilen)) < 0)
+        if((newsockfd = accept(sockfd, (struct sockaddr*)&cliaddr, &clilen)) < 0)
         {
-            perror(NULL);
+            perror("# Accept");
             close(sockfd);
-            exit(1);
+            return -1;
         }
         sockfds[client_count++] = newsockfd;
+        params.sockfd = newsockfd;
 
         pthread_t thid;
-        pthread_create(&thid, (pthread_attr_t*)NULL, server, (void*)&newsockfd);
+        pthread_create(&thid, (pthread_attr_t*)NULL, server, (void*)&params);
     }
 
     return 0;

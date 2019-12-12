@@ -1,4 +1,3 @@
-/* Простой пример TCP-клиента для сервиса echo */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -10,10 +9,17 @@
 #include <stdlib.h>
 #include <pthread.h>
 
+#include "tools.h"
+#include "connection.h"
+
 
 void* clientRead(void* arg)
 {
-	int sockfd = *((int*)arg);
+	socket_params_t params = *((socket_params_t*)arg);
+	int sockfd = params.sockfd;
+	struct sockaddr_in servaddr = params.servaddr;
+	struct sockaddr_in cliaddr	= params.cliaddr;
+
 	char sendline[1000] = {};
 	int n = 0;
 
@@ -21,7 +27,7 @@ void* clientRead(void* arg)
 	{
 		fflush(stdin);
 		fgets(sendline, 1000, stdin);
-		if((n = write(sockfd, sendline, strlen(sendline)+1)) < 0)
+		if ((n = sendto(sockfd, sendline, strlen(sendline) + 1, 0, (struct sockaddr *) &servaddr, sizeof servaddr) < 0))
 		{
 			perror("Can't write\n");
 			close(sockfd);
@@ -34,7 +40,11 @@ void* clientRead(void* arg)
 
 void* clientWrite(void* arg)
 {
-	int sockfd = *((int*)arg);
+	socket_params_t params = *((socket_params_t*)arg);
+	int sockfd = params.sockfd;
+	struct sockaddr_in servaddr = params.servaddr;
+	struct sockaddr_in cliaddr	= params.cliaddr;
+
 	int n = 0;
 	char recvline[1000] = {};
 
@@ -56,43 +66,37 @@ void* clientWrite(void* arg)
 
 int main(int argc, char **argv)
 {
-    int sockfd;
-    struct sockaddr_in servaddr;
+	int error = 0;
 
+	//	Parameters to operate with socket.
+    int sockfd;
+    struct sockaddr_in servaddr, cliaddr;
+
+    //	Check for valid usage.
     if(argc != 2){
         printf("Usage: a.out <IP address>\n");
         exit(1);
     }
 
     //	Create tcp socket.
-    if((sockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        perror(NULL);
-        exit(1);
-    }
+    error = socketCreate(&sockfd);
+    if (error == FUN_ERROR)
+    	return -1;
 
     //	Setup socket.
-    bzero(&servaddr, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(51000);
-    if(inet_aton(argv[1], &servaddr.sin_addr) == 0)
-    {
-        printf("Invalid IP address\n");
-        close(sockfd);
-        exit(1);
-    }
+    error = socketSetup_client(&sockfd, &servaddr, &cliaddr, argv[1]);
+    if (error == FUN_ERROR)
+		return -1;
 
-    //	Connect to socket.
-    if(connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0)
-    {
-        perror(NULL);
-        close(sockfd);
-        exit(1);
-    }
+    socket_params_t params = {
+    		.sockfd = sockfd,
+    		.servaddr = servaddr,
+			.cliaddr = cliaddr
+    };
 
 	pthread_t thid1, thid2;
-	pthread_create(&thid1, (pthread_attr_t*)NULL, clientRead,	(void*)&sockfd);
-	pthread_create(&thid2, (pthread_attr_t*)NULL, clientWrite, 	(void*)&sockfd);
+	pthread_create(&thid1, (pthread_attr_t*)NULL, clientRead,	(void*)&params);
+	pthread_create(&thid2, (pthread_attr_t*)NULL, clientWrite, 	(void*)&params);
 
 	pthread_join(thid1,	(void**)NULL);
 	pthread_join(thid2,	(void**)NULL);

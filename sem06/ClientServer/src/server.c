@@ -52,7 +52,7 @@ int main()
 
 			printf("received: pid %d, payload %d %d, sent: %ld\n", csbuf.payload.pid,
 								csbuf.payload.a, csbuf.payload.b, scbuf.payload.ab);
-//			sleep(1);
+			sleep(10);
 		}
 	}
 
