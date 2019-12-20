@@ -3,9 +3,13 @@
 
 #include <netinet/in.h>
 
-#define TO_CLIENT		1
-#define TO_SERVER		2
-#define LAST_MESSAGE	255
+#define NAME_LEN		21
+
+#define BROADCAST_ALL	-1
+#define BROADCAST_ONE	1
+#define BROADCAST_NONE	0
+
+#define MESSAGE_LEN		101
 
 typedef struct socket_params
 {
@@ -15,28 +19,32 @@ typedef struct socket_params
 } socket_params_t;
 
 
-typedef struct client_server_buf_msg
+typedef struct message
 {
-	long mtype;
-	struct payload1_t
+	int broadcast;
+	char receiver[NAME_LEN];
+	struct payload_t
 	{
-		pid_t pid;
-		int a;
-		int b;
-	}payload;
-} client_server_buf;
+		char name[NAME_LEN];
+		char message[MESSAGE_LEN];
+	} payload;
+	int response;
+} message_t;
 
 
-typedef struct server_client_buf_msg
+typedef struct client
 {
-	long mtype;
-	struct payload2_t
-	{
-		long ab;
-	}payload;
-} server_client_buf;
+	socket_params_t params;
+	char name[NAME_LEN];
+} client_t;
+
 
 int socketCreate(int* sockfd);
-int socketSetup_client(int* sockfd, struct sockaddr_in* servaddr, struct sockaddr_in* cliaddr, const char* ip);
+int client_socketSetup(int* sockfd, struct sockaddr_in* servaddr, struct sockaddr_in* cliaddr, const char* ip);
+
+int clientWrite(socket_params_t server_params, message_t message);
+int clientRead(socket_params_t server_params, message_t* message);
+
+int client_pickName(client_t* client);
 
 #endif /* CONNECTION_H_ */

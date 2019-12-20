@@ -17,7 +17,7 @@ int socketCreate(int* sockfd)
 
 	if((*sockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
 	{
-		perror("# Socket");
+		red; perror("# Socket"); reset_color;
 		return FUN_ERROR;
 	}
 
@@ -25,8 +25,11 @@ int socketCreate(int* sockfd)
 }
 
 
-int socketSetup_server(int* sockfd, struct sockaddr_in* servaddr)
+int server_socketSetup(int* sockfd, struct sockaddr_in* servaddr)
 {
+	if (MY_assert(sockfd) || MY_assert(servaddr))
+		return ASSERT_FAIL;
+
     bzero(servaddr, sizeof(*servaddr));
     servaddr->sin_family= AF_INET;
     servaddr->sin_port= htons(51000);
@@ -35,7 +38,7 @@ int socketSetup_server(int* sockfd, struct sockaddr_in* servaddr)
     //	Setup socket's address.
     if(bind(*sockfd, (struct sockaddr *)servaddr, sizeof(*servaddr)) < 0)
     {
-        perror("# Bind");
+        red; perror("# Bind"); reset_color;
         close(*sockfd);
         return FUN_ERROR;
     }
@@ -43,10 +46,92 @@ int socketSetup_server(int* sockfd, struct sockaddr_in* servaddr)
     //	Move socket to listening mode.
     if(listen(*sockfd, 5) < 0)
     {
-        perror("# Listen");
+        red; perror("# Listen"); reset_color;
         close(*sockfd);
         return FUN_ERROR;
     }
 
+//    setsockopt(*sockfd, )
+
     return OK;
+}
+
+int serverWrite(socket_params_t client_params, message_t message)
+{
+	int n = sendto(client_params.sockfd, (char*)&message, sizeof(message), 0, (struct sockaddr*)&(client_params.cliaddr), sizeof(client_params.cliaddr));
+	if (n < 0)
+	{
+		red; perror("# Server write"); reset_color;
+		return FUN_ERROR;
+	}
+
+	return OK;
+}
+
+int serverRead(socket_params_t client_params, message_t* message)
+{
+	if (MY_assert(message))
+		return ASSERT_FAIL;
+
+	int n = recvfrom(client_params.sockfd, (char*)message, sizeof(*message), 0, (struct sockaddr*)NULL, NULL);
+	if (n < 0)
+	{
+		red; perror("# Server read error"); reset_color;
+		close(client_params.sockfd);
+		return FUN_ERROR;
+	}
+	else if (n == 0)
+	{
+		close(client_params.sockfd);
+		return FUN_ERROR;
+	}
+
+	return OK;
+}
+
+int server_checkClientName(client_t* clients, client_t* client)
+{
+	if (MY_assert(clients) || MY_assert(client))
+		return ASSERT_FAIL;
+
+	int error = 0;
+	message_t message = {};
+	for (;;)
+	{
+		error = serverRead(client->params, &message);
+		if (error != OK)
+			return FUN_ERROR;
+
+		int res = 1;
+		for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+		{
+			if (clients[i].status == OK)
+			{
+				res = strcmp(message.payload.name, clients[i].name);
+				if (res == 0)
+					break;
+			}
+		}
+
+		if (res == 0)
+			message.response = FUN_ERROR;
+		else
+		{
+			message.response = OK;
+			memcpy(client->name, message.payload.name, NAME_LEN);
+			client->status = OK;
+//			printf("Client %s registered, %d\n", client->name, client->status);
+			break;
+		}
+
+		error = serverWrite(client->params, message);
+		if (error != OK)
+			return FUN_ERROR;
+	}
+
+	error = serverWrite(client->params, message);
+	if (error != OK)
+		return FUN_ERROR;
+
+	return OK;
 }

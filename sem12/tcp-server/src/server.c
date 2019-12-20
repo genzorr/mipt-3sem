@@ -1,4 +1,3 @@
-/* Пример простого TCP-сервера для сервиса echo */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -13,47 +12,72 @@
 #include "tools.h"
 #include "connection.h"
 
-#define MAX_CLIENT_COUNT	10
-
-int client_count;
-int* sockfds;
-
+client_t* clients;
 
 void* server(void* arg)
 {
-	socket_params_t params = *((socket_params_t*)arg);
-	int newsockfd = params.sockfd;
-	struct sockaddr_in servaddr = params.servaddr;
-	struct sockaddr_in cliaddr	= params.cliaddr;
+	client_t client = {
+			.params.sockfd = ((client_t*)arg)->params.sockfd,
+			.params.servaddr = ((client_t*)arg)->params.servaddr,
+			.params.cliaddr = ((client_t*)arg)->params.cliaddr,
+			.name = {},
+			.status = -1,
+			.number = -1
+	};
+//	client_t client = *((client_t*)arg);
 
-	char line[1000] = {};
-	int n = 0;
+	int error = 0;
+
+    error = server_checkClientName(clients, &client);
+    if (error != OK)
+    {
+    	return NULL;
+    }
+
+    for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+    {
+    	if (clients[i].status != OK)
+    	{
+    		client.number = i;
+    		memcpy(&(clients[i]), &client, sizeof(client));
+    		break;
+    	}
+    }
 
 	for (;;)
 	{
 		//	Read information from connected socket.
-		while((n = recvfrom(newsockfd, line, 1000, 0, (struct sockaddr*)NULL, NULL)) > 0)
-		{
-			for (int i = 0; i < client_count; i++)
-			{
-				if (sockfds[i] == newsockfd)
-					continue;
+//		while((n = recvfrom(newsockfd, line, 1000, 0, (struct sockaddr*)NULL, NULL)) > 0)
+//		{
+//			for (int i = 0; i < client_count; i++)
+//			{
+//				if (clients[i].params.sockfd == newsockfd)
+//					continue;
+//
+//				if ((n = sendto(clients[i].params.sockfd, line, 1000, 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr))) < 0)
+//				{
+//					red; perror("# Sendto"); reset_color;
+//					close(newsockfd);
+//					exit(1);
+//				}
+//			}
+//		}
 
-				if ((n = sendto(sockfds[i], line, 1000, 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr))) < 0)
-				{
-					perror("# Sendto");
-					close(newsockfd);
-					exit(1);
-				}
-			}
+		message_t message = {};
+		error = serverRead(client.params, &message);
+		if (error != OK)
+		{
+//			close(clients[client.number].params.sockfd);
+			clients[client.number].status = -1;
+			return NULL;
 		}
 
-		//	Exit if error occurred.
-		if(n < 0)
+		error = serverWrite(client.params, message);
+		if (error != OK)
 		{
-			perror("Error when send");
-			close(newsockfd);
-			exit(1);
+			close(clients[client.number].params.sockfd);
+			clients[client.number].status = -1;
+			return NULL;
 		}
 	}
 
@@ -71,41 +95,55 @@ int main()
 
     //	Create tcp socket.
     error = socketCreate(&sockfd);
-    if (error == FUN_ERROR)
+    if (error != OK)
     	return -1;
 
     //	Setup socket.
-    error = socketSetup_server(&sockfd, &servaddr);
-    if (error == FUN_ERROR)
+    error = server_socketSetup(&sockfd, &servaddr);
+    if (error != OK)
 		return -1;
 
-    socket_params_t params = {
-    		.sockfd = 0,
-    		.servaddr = servaddr,
-			.cliaddr = cliaddr
-    };
-
-    client_count = 0;
-    sockfds = (int*)calloc(MAX_CLIENT_COUNT, sizeof(*sockfds));
+    client_t client_dummy = {};
+    clients = (client_t*)calloc(MAX_CLIENT_COUNT, sizeof(*clients));
+    for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+    {
+    	memcpy(&clients[i], &client_dummy, sizeof(client_dummy));
+    	clients[i].status = -1;
+    }
 
     while(1)
     {
+    	while(1)
+    	{
+			for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+			{
+				if (clients[i].status != OK)
+					break;
+			}
+    	}
+
     	//	Client address.
         clilen = sizeof(cliaddr);
 
         //	Accept socket connection.
         if((newsockfd = accept(sockfd, (struct sockaddr*)&cliaddr, &clilen)) < 0)
         {
-            perror("# Accept");
+            red; perror("# Accept"); reset_color;
             close(sockfd);
             return -1;
         }
-        sockfds[client_count++] = newsockfd;
-        params.sockfd = newsockfd;
+
+        client_t new_client = {
+        		.params.sockfd = newsockfd
+        };
+        memcpy(&(new_client.params.servaddr), &servaddr, sizeof(servaddr));
+        memcpy(&(new_client.params.cliaddr), &cliaddr, sizeof(cliaddr));
 
         pthread_t thid;
-        pthread_create(&thid, (pthread_attr_t*)NULL, server, (void*)&params);
+        pthread_create(&thid, (pthread_attr_t*)NULL, server, (void*)&new_client);
     }
+
+    free(clients);
 
     return 0;
 }
