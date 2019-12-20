@@ -24,60 +24,97 @@ void* server(void* arg)
 			.status = -1,
 			.number = -1
 	};
-//	client_t client = *((client_t*)arg);
 
 	int error = 0;
+    int free_socket = -1;
+    server_searchFree(clients, &free_socket);
+
+    if (free_socket == -1)
+    {
+    	message_t message = {
+    			.response = CLIENT_LIMIT
+    	};
+    	serverWrite(client.params, message);
+    	close(client.params.sockfd);
+    	return NULL;
+    }
+    else
+    {
+    	message_t message = {
+			.response = OK
+		};
+		serverWrite(client.params, message);
+    }
 
     error = server_checkClientName(clients, &client);
     if (error != OK)
-    {
     	return NULL;
-    }
 
-    for (int i = 0; i < MAX_CLIENT_COUNT; i++)
-    {
-    	if (clients[i].status != OK)
-    	{
-    		client.number = i;
-    		memcpy(&(clients[i]), &client, sizeof(client));
-    		break;
-    	}
-    }
+    client.number = free_socket;
+    memcpy(&(clients[free_socket]), &client, sizeof(client));
 
 	for (;;)
 	{
-		//	Read information from connected socket.
-//		while((n = recvfrom(newsockfd, line, 1000, 0, (struct sockaddr*)NULL, NULL)) > 0)
-//		{
-//			for (int i = 0; i < client_count; i++)
-//			{
-//				if (clients[i].params.sockfd == newsockfd)
-//					continue;
-//
-//				if ((n = sendto(clients[i].params.sockfd, line, 1000, 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr))) < 0)
-//				{
-//					red; perror("# Sendto"); reset_color;
-//					close(newsockfd);
-//					exit(1);
-//				}
-//			}
-//		}
-
 		message_t message = {};
 		error = serverRead(client.params, &message);
 		if (error != OK)
 		{
-//			close(clients[client.number].params.sockfd);
+			close(clients[client.number].params.sockfd);
 			clients[client.number].status = -1;
+			yellow; printf("# Client %s disconnected.", client.name); reset_color; printf("\n");
 			return NULL;
 		}
 
-		error = serverWrite(client.params, message);
-		if (error != OK)
+		if (message.broadcast == BROADCAST_ALL)
 		{
-			close(clients[client.number].params.sockfd);
-			clients[client.number].status = -1;
-			return NULL;
+			for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+			{
+				if ((clients[i].status == OK) && (i != client.number))
+					error = serverWrite(clients[i].params, message);
+
+				if (error != OK)
+				{
+					close(clients[client.number].params.sockfd);
+					clients[client.number].status = -1;
+					yellow; printf("# Client %s disconnected.", client.name); reset_color; printf("\n");
+					return NULL;
+				}
+			}
+		}
+		else if (message.broadcast == BROADCAST_ONE)
+		{
+			int num = -1;
+			error = server_searchReceiver(clients, message.receiver, &num);
+			if (error != OK)
+			{
+				close(client.params.sockfd);
+				return NULL;
+			}
+
+			if (num != -1)
+			{
+				error = serverWrite(clients[num].params, message);
+				if (error != OK)
+				{
+					close(clients[client.number].params.sockfd);
+					clients[client.number].status = -1;
+					yellow; printf("# Client %s disconnected.", client.name); reset_color; printf("\n");
+					return NULL;
+				}
+			}
+			else
+			{
+				message.response = NO_USER;
+				error = serverWrite(client.params, message);
+				if (error != OK)
+				{
+					close(clients[client.number].params.sockfd);
+					clients[client.number].status = -1;
+					yellow; printf("# Client %s disconnected.", client.name); reset_color; printf("\n");
+					return NULL;
+				}
+
+			}
 		}
 	}
 
@@ -90,8 +127,8 @@ int main()
 	int error = 0;
 
     int sockfd, newsockfd;
-    socklen_t clilen;
     struct sockaddr_in servaddr, cliaddr;
+    socklen_t clilen = sizeof(cliaddr);
 
     //	Create tcp socket.
     error = socketCreate(&sockfd);
@@ -113,18 +150,6 @@ int main()
 
     while(1)
     {
-    	while(1)
-    	{
-			for (int i = 0; i < MAX_CLIENT_COUNT; i++)
-			{
-				if (clients[i].status != OK)
-					break;
-			}
-    	}
-
-    	//	Client address.
-        clilen = sizeof(cliaddr);
-
         //	Accept socket connection.
         if((newsockfd = accept(sockfd, (struct sockaddr*)&cliaddr, &clilen)) < 0)
         {

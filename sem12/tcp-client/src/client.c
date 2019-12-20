@@ -1,5 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -8,10 +10,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "tools.h"
 #include "connection.h"
 
+pthread_t thid1, thid2;
 
 void* Write(void* arg)
 {
@@ -24,19 +28,32 @@ void* Write(void* arg)
 	int sockfd = params.sockfd;
 
 	int error = 0;
-	message_t message = {};
-	memcpy(message.payload.name, client.name, NAME_LEN);
+	message_t message = {
+			.broadcast = BROADCAST_ALL
+	};
 
-	for(;;)
+	for (;;)
 	{
+		message.broadcast = BROADCAST_ALL;
+
+		char dummy[MESSAGE_LEN] = {};
 		fflush(stdin);
-		fgets(message.payload.message, MESSAGE_LEN, stdin);
-//		if ((n = sendto(sockfd, sendline, strlen(sendline) + 1, 0, (struct sockaddr *) &servaddr, sizeof servaddr) < 0))
-//		{
-//			red; perror("Can't write\n"); reset_color;
-//			close(sockfd);
-//			exit(1);
-//		}
+		fgets(dummy, MESSAGE_LEN, stdin);
+		char* n = strchr(dummy, '\n');
+		*n = '\0';
+
+		if (dummy[0] == '#')
+		{
+			memcpy(message.receiver, dummy+1, MESSAGE_LEN);
+			fgets(message.payload.message, MESSAGE_LEN, stdin);
+			char* n = strchr(message.payload.message, '\n');
+			*n = '\0';
+			message.broadcast = BROADCAST_ONE;
+		}
+		else
+			memcpy(message.payload.message, dummy, MESSAGE_LEN);
+
+		memcpy(message.payload.name, client.name, NAME_LEN);
 		error = clientWrite(params, message);
 		if (error != OK)
 		{
@@ -69,15 +86,31 @@ void* Read(void* arg)
 		error = clientRead(params, &message);
 		if (error != OK)
 		{
-			red; perror("Read error"); reset_color;
 			close(sockfd);
-			return NULL;
+			break;
 		}
 
-		printf("%s", message.payload.message);
-		memset(message.payload.message, 0x00, MESSAGE_LEN);
+		if (message.response == NO_USER)
+		{
+			yellow; printf("No user with name %s.", message.receiver); reset_color;
+			printf("\n");
+			continue;
+		}
+
+		if (message.broadcast == BROADCAST_ONE)
+		{
+			yellow; printf("(you)%s: ", message.payload.name); reset_color;
+			printf("%s\n", message.payload.message);
+		}
+		else if (message.broadcast == BROADCAST_ALL)
+		{
+			blue; printf("(all)%s: ", message.payload.name); reset_color;
+			printf("%s\n", message.payload.message);
+			memset(message.payload.message, 0x00, MESSAGE_LEN);
+		}
 	}
 
+	pthread_kill(thid2, SIGKILL);
 	return NULL;
 }
 
@@ -96,6 +129,8 @@ int main(int argc, char **argv)
         yellow; printf("Usage: a.out <IP address>\n"); reset_color;
         exit(1);
     }
+
+    printf("\e[1;1H\e[2J");
 
     //	Create tcp socket.
     error = socketCreate(&sockfd);
@@ -117,9 +152,10 @@ int main(int argc, char **argv)
     // Setup client in the net.
     error = client_pickName(&client);
     if (error == FUN_ERROR)
+    {
     	return -1;
+    }
 
-    pthread_t thid1, thid2;
 	pthread_create(&thid1, (pthread_attr_t*)NULL, Read,	(void*)&client);
 	pthread_create(&thid2, (pthread_attr_t*)NULL, Write, (void*)&client);
 

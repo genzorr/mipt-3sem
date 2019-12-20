@@ -92,6 +92,13 @@ int clientRead(socket_params_t server_params, message_t* message)
 		close(server_params.sockfd);
 		return FUN_ERROR;
 	}
+	if (n == 0)
+	{
+		red; printf("# Server disconnected."); reset_color;
+		printf("\n");
+		close(server_params.sockfd);
+		return FUN_ERROR;
+	}
 
 	return OK;
 }
@@ -99,20 +106,41 @@ int clientRead(socket_params_t server_params, message_t* message)
 
 int client_pickName(client_t* client)
 {
+	if (MY_assert(client))
+		return ASSERT_FAIL;
+
+	int error = 0;
+	message_t message = {
+		.broadcast = BROADCAST_NONE,
+		.response = -1
+	};
+
+	//	Check if we can connect.
+	error = clientRead(client->params, &message);
+	if (error != OK)
+		return FUN_ERROR;
+	if (message.response == CLIENT_LIMIT)
+	{
+		yellow; printf("Client limit is reached. Try again later."); reset_color;
+		printf("\n");
+		return FUN_ERROR;
+	}
+
 	blue;
 	printf("## Welcome to v1 server messenger\n");
 	printf("## Pick a name to start (20 symbols max):\n");
 	reset_color;
 
-	int error = 0;
 	for (;;)
 	{
-		message_t message = {
-				.broadcast = BROADCAST_NONE,
-				.response = -1
-		};
-		scanf("%s", message.payload.name);
+		//	Get client name.
+//		scanf("%s", message.payload.name);
+		fgets(message.payload.name, MESSAGE_LEN, stdin);
+		char* n = strchr(message.payload.name, '\n');
+		*n = '\0';
 
+		//	Check if picked name is unique.
+		message.broadcast = BROADCAST_NONE;
 		error = clientWrite(client->params, message);
 		if (error != OK)
 			return FUN_ERROR;
@@ -121,9 +149,10 @@ int client_pickName(client_t* client)
 		if (error != OK)
 			return FUN_ERROR;
 
-		if (message.response != OK)
+		if (message.response == NON_UNIQUE)
 		{
-			yellow; printf("This name is already in use, try again.\n"); reset_color;
+			yellow; printf("This name is already in use, try again."); reset_color;
+			printf("\n");
 		}
 		else
 		{

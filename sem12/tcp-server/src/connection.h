@@ -10,6 +10,9 @@
 #define MESSAGE_LEN		101
 
 #define MAX_CLIENT_COUNT	3
+#define CLIENT_LIMIT		100
+#define NON_UNIQUE			101
+#define NO_USER				102
 
 
 typedef struct socket_params
@@ -49,6 +52,8 @@ int serverWrite(socket_params_t client_params, message_t message);
 int serverRead(socket_params_t client_params, message_t* message);
 
 int server_checkClientName(client_t* clients, client_t* client);
+int server_searchFree(client_t* clients, int* num);
+int server_searchReceiver(client_t* clients, char* name, int* num);
 
 
 #endif /* CONNECTION_H_ */

@@ -114,13 +114,13 @@ int server_checkClientName(client_t* clients, client_t* client)
 		}
 
 		if (res == 0)
-			message.response = FUN_ERROR;
+			message.response = NON_UNIQUE;
 		else
 		{
 			message.response = OK;
 			memcpy(client->name, message.payload.name, NAME_LEN);
 			client->status = OK;
-//			printf("Client %s registered, %d\n", client->name, client->status);
+			green; printf("# Client %s added.", client->name); reset_color; printf("\n");
 			break;
 		}
 
@@ -132,6 +132,47 @@ int server_checkClientName(client_t* clients, client_t* client)
 	error = serverWrite(client->params, message);
 	if (error != OK)
 		return FUN_ERROR;
+
+	return OK;
+}
+
+
+int server_searchFree(client_t* clients, int* num)
+{
+	if (MY_assert(clients) || MY_assert(num))
+		return ASSERT_FAIL;
+
+	*num = -1;
+	for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+	{
+		if (clients[i].status != OK)
+		{
+			*num = i;
+			break;
+		}
+	}
+
+	return OK;
+}
+
+
+int server_searchReceiver(client_t* clients, char* name, int* num)
+{
+	if (MY_assert(clients) || MY_assert(num))
+		return ASSERT_FAIL;
+
+	*num = -1;
+	for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+	{
+		if (clients[i].status == OK)
+		{
+			if (strcmp(name, clients[i].name) == 0)
+			{
+				*num = i;
+				break;
+			}
+		}
+	}
 
 	return OK;
 }

@@ -11,6 +11,11 @@
 
 #define MESSAGE_LEN		101
 
+#define CLIENT_LIMIT	100
+#define NON_UNIQUE		101
+#define NO_USER			102
+
+
 typedef struct socket_params
 {
 	int sockfd;
