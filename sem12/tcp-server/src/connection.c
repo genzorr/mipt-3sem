@@ -10,6 +10,11 @@
 #include "connection.h"
 
 
+void clearScreen()
+{
+}
+
+
 int socketCreate(int* sockfd)
 {
 	if (MY_assert(sockfd))

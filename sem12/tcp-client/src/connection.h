@@ -43,6 +43,7 @@ typedef struct client
 	char name[NAME_LEN];
 } client_t;
 
+void clearScreen();
 
 int socketCreate(int* sockfd);
 int client_socketSetup(int* sockfd, struct sockaddr_in* servaddr, struct sockaddr_in* cliaddr, const char* ip);

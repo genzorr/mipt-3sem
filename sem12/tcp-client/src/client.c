@@ -110,7 +110,7 @@ void* Read(void* arg)
 		}
 	}
 
-	pthread_kill(thid2, SIGKILL);
+	pthread_kill(thid2, SIGINT);
 	return NULL;
 }
 
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    printf("\e[1;1H\e[2J");
+    system("clear");
 
     //	Create tcp socket.
     error = socketCreate(&sockfd);
@@ -153,6 +153,7 @@ int main(int argc, char **argv)
     error = client_pickName(&client);
     if (error == FUN_ERROR)
     {
+    	close(client.params.sockfd);
     	return -1;
     }
 

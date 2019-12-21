@@ -130,6 +130,8 @@ int main()
     struct sockaddr_in servaddr, cliaddr;
     socklen_t clilen = sizeof(cliaddr);
 
+    system("clear");
+
     //	Create tcp socket.
     error = socketCreate(&sockfd);
     if (error != OK)

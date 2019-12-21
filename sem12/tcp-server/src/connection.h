@@ -44,6 +44,7 @@ typedef struct client
 	int number;
 } client_t;
 
+void clearScreen();
 
 int socketCreate(int* sockfd);
 int server_socketSetup(int* sockfd, struct sockaddr_in* servaddr);

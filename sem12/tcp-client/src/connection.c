@@ -11,6 +11,10 @@
 #include "tools.h"
 #include "connection.h"
 
+void clearScreen()
+{
+	printf("\e[1;1H\e[2J");
+}
 
 int socketCreate(int* sockfd)
 {
@@ -134,7 +138,6 @@ int client_pickName(client_t* client)
 	for (;;)
 	{
 		//	Get client name.
-//		scanf("%s", message.payload.name);
 		fgets(message.payload.name, MESSAGE_LEN, stdin);
 		char* n = strchr(message.payload.name, '\n');
 		*n = '\0';
@@ -147,7 +150,9 @@ int client_pickName(client_t* client)
 
 		error = clientRead(client->params, &message);
 		if (error != OK)
+		{
 			return FUN_ERROR;
+		}
 
 		if (message.response == NON_UNIQUE)
 		{
