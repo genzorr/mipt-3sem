@@ -64,6 +64,7 @@ void* server(void* arg)
 			yellow; printf("# Client %s disconnected.", client.name); reset_color; printf("\n");
 			return NULL;
 		}
+		printf("message %d %s\n", message.broadcast, message.payload.message);
 
 		if (message.broadcast == BROADCAST_ALL)
 		{
@@ -114,6 +115,53 @@ void* server(void* arg)
 					return NULL;
 				}
 
+			}
+		}
+		else if (message.broadcast == BROADCAST_NONE)
+		{
+			message.broadcast = BROADCAST_NONE;
+			if (strcmp(message.payload.message, "list") == 0)
+			{
+//				sprintf(message.payload.message, "$");
+				message.payload.message[0] = '$';
+				message.payload.message[1] = '\0';
+				message.response = MAX_CLIENT_COUNT;
+				error = serverWrite(client.params, message);
+				if (error != OK)
+				{
+					close(clients[client.number].params.sockfd);
+					clients[client.number].status = -1;
+					yellow; printf("# Client %s disconnected.", client.name); reset_color; printf("\n");
+					return NULL;
+				}
+
+				for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+				{
+					if (clients[i].status == OK)
+					{
+						memcpy(&(message.payload.message), &(clients[i].name), NAME_LEN);
+						printf("$s\n", message.payload.message);
+						error = serverWrite(client.params, message);
+						if (error != OK)
+						{
+							close(clients[client.number].params.sockfd);
+							clients[client.number].status = -1;
+							yellow; printf("# Client %s disconnected.", client.name); reset_color; printf("\n");
+							return NULL;
+						}
+					}
+				}
+
+				message.broadcast = BROADCAST_NONE;
+				sprintf(message.payload.message, "$");
+				error = serverWrite(client.params, message);
+				if (error != OK)
+				{
+					close(clients[client.number].params.sockfd);
+					clients[client.number].status = -1;
+					yellow; printf("# Client %s disconnected.", client.name); reset_color; printf("\n");
+					return NULL;
+				}
 			}
 		}
 	}

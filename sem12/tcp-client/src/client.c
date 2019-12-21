@@ -50,6 +50,11 @@ void* Write(void* arg)
 			*n = '\0';
 			message.broadcast = BROADCAST_ONE;
 		}
+		else if (dummy[0] == '$')
+		{
+			memcpy(message.payload.message, dummy+1, MESSAGE_LEN);
+			message.broadcast = BROADCAST_NONE;
+		}
 		else
 			memcpy(message.payload.message, dummy, MESSAGE_LEN);
 
@@ -79,10 +84,10 @@ void* Read(void* arg)
 	int sockfd = params.sockfd;
 
 	int error = 0;
-	message_t message = {};
 
 	for (;;)
 	{
+		message_t message = {};
 		error = clientRead(params, &message);
 		if (error != OK)
 		{
@@ -107,6 +112,29 @@ void* Read(void* arg)
 			blue; printf("(all)%s: ", message.payload.name); reset_color;
 			printf("%s\n", message.payload.message);
 			memset(message.payload.message, 0x00, MESSAGE_LEN);
+		}
+		else if (message.broadcast == BROADCAST_NONE)
+		{
+			if (message.payload.message[0] == '$')
+			{
+				for (int i = 0; i < message.response; i++)
+				{
+					error = clientRead(params, &message);
+					if (error != OK)
+					{
+						close(sockfd);
+						printf("\n");
+						break;
+					}
+					if (message.payload.message[0] == '$')
+					{
+						printf("\n");
+						break;
+					}
+
+					green; printf("%s ", message.payload.message); reset_color;
+				}
+			}
 		}
 	}
 

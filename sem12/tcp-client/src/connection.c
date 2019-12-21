@@ -125,7 +125,7 @@ int client_pickName(client_t* client)
 		return FUN_ERROR;
 	if (message.response == CLIENT_LIMIT)
 	{
-		yellow; printf("Client limit is reached. Try again later."); reset_color;
+		yellow; printf("# Client limit is reached. Try again later."); reset_color;
 		printf("\n");
 		return FUN_ERROR;
 	}
@@ -150,13 +150,11 @@ int client_pickName(client_t* client)
 
 		error = clientRead(client->params, &message);
 		if (error != OK)
-		{
 			return FUN_ERROR;
-		}
 
 		if (message.response == NON_UNIQUE)
 		{
-			yellow; printf("This name is already in use, try again."); reset_color;
+			yellow; printf("# This name is already in use, try again."); reset_color;
 			printf("\n");
 		}
 		else
